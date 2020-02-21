@@ -18,7 +18,6 @@ std::ifstream::pos_type GetFileSize(const char* filename)
 
 string GetLastErrorAsString()
 {
-    //Get the error message, if any.
     DWORD errorMessageID = ::GetLastError();
     if(errorMessageID == 0)
         return std::string(); //No error message has been recorded
@@ -37,91 +36,97 @@ string GetLastErrorAsString()
 
 int main()
 {
-  for (const auto& dirEntry : fs::recursive_directory_iterator("test"))
-    cout << dirEntry << endl;
+  for (auto& dirEntry: std::filesystem::recursive_directory_iterator("xcover")) {
+    if (!dirEntry.is_regular_file()) {
+      //std::cout << "Directory: " << dirEntry.path() << std::endl;
+      continue;
+    }
+    std::filesystem::path file = dirEntry.path();
+    //std::cout << "Filename: " << file.filename() << " extension: " << file.extension() << std::endl;
 
-  return 0;
+    FILETIME ftCreate;
+    FILETIME ftAccess;
+    FILETIME ftWrite;
 
-  cout << "Test" << endl;
+    HANDLE hFile1;
+    HANDLE hFile2;
 
-  FILETIME ftCreate;
-  FILETIME ftAccess;
-  FILETIME ftWrite;
+    auto temp = file.c_str();
 
-  HANDLE hFile1;
-  HANDLE hFile2;
+    wcout << temp << endl;
 
+    char fileName[512];
 
-  //LPCSTR fileName = "msys2-x86_64-20190524.exe";
-  LPCSTR fileName = "image.png";
+    wcstombs(fileName, temp, sizeof(fileName));
 
-  string s = (string("temp_") + string(fileName));
+    LPCSTR tempFileName = (string(fileName) + string(".temp")).c_str();
+    LPCSTR copyFileName = "image.jpg";
 
-  LPCSTR tempFileName = s.c_str();
-  LPCSTR copyFileName = "msys2-x86_64-20190524.exe";
+    cout << "fileName : " << fileName << endl;
+    cout << "tempFileName : " << tempFileName << endl;
 
-  fs::remove(tempFileName);
-  fs::copy(fileName, tempFileName);
+    fs::remove(tempFileName);
+    fs::copy(copyFileName, tempFileName);
 
-  ofstream myfile1;
+    ofstream myfile1;
 
-  long sourceFileSize = GetFileSize(fileName);
-  long fileSize = GetFileSize(copyFileName);
+    long sourceFileSize = GetFileSize(fileName);
+    long fileSize = GetFileSize(copyFileName);
 
-  cout << fileName << endl;
-  cout << tempFileName << endl;
-  cout << fileSize << endl;
+    cout << fileName << endl;
+    cout << tempFileName << endl;
+    cout << fileSize << endl;
 
-  hFile1 = CreateFile(fileName,                // name of the write
-                   GENERIC_READ,          // open for writing
-                   0,                      // do not share
-                   NULL,                   // default security
-                   OPEN_EXISTING,             // create new file only
-                   FILE_ATTRIBUTE_NORMAL,  // normal file
-                   NULL);                  // no attr. template
+    hFile1 = CreateFile(fileName,                // name of the write
+                        GENERIC_READ,          // open for writing
+                        0,                      // do not share
+                        NULL,                   // default security
+                        OPEN_EXISTING,             // create new file only
+                        FILE_ATTRIBUTE_NORMAL,  // normal file
+                        NULL);                  // no attr. template
 
-  if(!GetFileTime(hFile1, &ftCreate, &ftAccess, &ftWrite))
-  {
-    printf("Something wrong!\n");
-    cout << GetLastErrorAsString() << endl;
-    return FALSE;
-  }
+    if(!GetFileTime(hFile1, &ftCreate, &ftAccess, &ftWrite))
+    {
+      printf("Something wrong!\n");
+      cout << GetLastErrorAsString() << endl;
+      return FALSE;
+    }
 
-  ofstream myfile;
-  myfile.open(tempFileName, ios::binary | std::ios_base::app);
+    ofstream myfile;
+    myfile.open(tempFileName, ios::binary | std::ios_base::app);
 
-  long diffSize = fileSize - sourceFileSize;
+    long diffSize = sourceFileSize - fileSize;
 
-  if (myfile.is_open())
-  {
+    if (myfile.is_open())
+    {
       for(long i = 0; i < diffSize; i++)
       {
         myfile << "0";
       }
       myfile.flush();
       myfile.close();
-  }
-  else
-  {
+    }
+    else
+    {
       std::cerr << "didn't write" << std::endl;
-  }
+    }
 
-  hFile2 = CreateFile(tempFileName,                // name of the write
-                   GENERIC_WRITE,          // open for writing
-                   0,                      // do not share
-                   NULL,                   // default security
-                   OPEN_EXISTING,             // create new file only
-                   FILE_ATTRIBUTE_NORMAL,  // normal file
-                   NULL);                  // no attr. template
+    hFile2 = CreateFile(tempFileName,                // name of the write
+                        GENERIC_WRITE,          // open for writing
+                        0,                      // do not share
+                        NULL,                   // default security
+                        OPEN_EXISTING,             // create new file only
+                        FILE_ATTRIBUTE_NORMAL,  // normal file
+                        NULL);                  // no attr. template
 
 
-  if(!SetFileTime(hFile2, &ftCreate, &ftAccess, &ftWrite))
-  {
-    printf("Something wrong!\n");
-    cout << GetLastErrorAsString() << endl;
-    return FALSE;
-  }
+    if(!SetFileTime(hFile2, &ftCreate, &ftAccess, &ftWrite))
+    {
+      printf("Something wrong!\n");
+      cout << GetLastErrorAsString() << endl;
+      return FALSE;
+    }
 
-  myfile.close();
-  return 0;
+    myfile.close();
+   }
 }
