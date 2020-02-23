@@ -10,11 +10,43 @@ using namespace std;
 
 namespace fs = filesystem;
 
+string allDrives;
+
+
 std::ifstream::pos_type GetFileSize(const char* filename)
 {
     std::ifstream in(filename, std::ifstream::ate | std::ifstream::binary);
     return in.tellg();
 }
+
+char getRemovableDisk()
+{
+    char drive='0';
+
+    char szLogicalDrives[MAX_PATH];
+    DWORD dwResult = GetLogicalDriveStrings(MAX_PATH, szLogicalDrives);
+
+    string currentDrives="";
+
+    //cout << dwResult << endl;
+    for(int i=0; i<dwResult; i++)
+    {
+        if(szLogicalDrives[i]>64 && szLogicalDrives[i]< 90)
+        {
+            currentDrives.append(1, szLogicalDrives[i]);
+
+            if(allDrives.find(szLogicalDrives[i]) > 100)
+            {
+                drive = szLogicalDrives[i];
+            }
+        }
+    }
+
+    allDrives = currentDrives;
+
+    return drive;
+}
+
 
 string GetLastErrorAsString()
 {
@@ -34,9 +66,36 @@ string GetLastErrorAsString()
 }
 
 
-int main()
+string convertToString(char* a, int size)
 {
-  for (auto& dirEntry: std::filesystem::recursive_directory_iterator("xcover")) {
+    int i;
+    string s = "";
+    for (i = 0; i < size; i++) {
+        s = s + a[i];
+    }
+    return s;
+}
+
+int main(int argc, char** argv)
+{
+  if(argc != 3)
+  {
+    cerr << "Missing parameters" << endl;
+    return 1;
+  }
+
+  char driveLetter;
+
+  while(1){
+       driveLetter = getRemovableDisk();
+       if(driveLetter!='0'){
+           printf("%c \n", driveLetter);
+       }
+
+       Sleep(1000);
+   }
+
+  for (auto& dirEntry: std::filesystem::recursive_directory_iterator(argv[1])) {
     if (!dirEntry.is_regular_file()) {
       //std::cout << "Directory: " << dirEntry.path() << std::endl;
       continue;
@@ -51,16 +110,15 @@ int main()
     HANDLE hFile1;
     HANDLE hFile2;
 
-    auto temp = file.c_str();
-
-    wcout << temp << endl;
-
     char fileName[512];
 
-    wcstombs(fileName, temp, sizeof(fileName));
+    wcstombs(fileName, file.c_str(), sizeof(fileName));
 
-    LPCSTR tempFileName = (string(fileName) + string(".temp")).c_str();
-    LPCSTR copyFileName = "image.jpg";
+    char tempFileName[512];
+    strcpy(tempFileName, fileName);
+    strcat(tempFileName, string(".temp").c_str());
+
+    LPCSTR copyFileName = argv[2];
 
     cout << "fileName : " << fileName << endl;
     cout << "tempFileName : " << tempFileName << endl;
@@ -92,6 +150,9 @@ int main()
       return FALSE;
     }
 
+
+    CloseHandle(hFile1);
+
     ofstream myfile;
     myfile.open(tempFileName, ios::binary | std::ios_base::app);
 
@@ -111,7 +172,12 @@ int main()
       std::cerr << "didn't write" << std::endl;
     }
 
-    hFile2 = CreateFile(tempFileName,                // name of the write
+    myfile.close();
+
+    fs::remove(fileName);
+    rename(tempFileName , fileName);
+
+    hFile2 = CreateFile(fileName,                // name of the write
                         GENERIC_WRITE,          // open for writing
                         0,                      // do not share
                         NULL,                   // default security
@@ -126,7 +192,5 @@ int main()
       cout << GetLastErrorAsString() << endl;
       return FALSE;
     }
-
-    myfile.close();
    }
 }
