@@ -6,9 +6,7 @@ A bit strange project that replace all files by another one but keep all metadat
 -   Windows
 -   g++ 17
 
-## Usage
-
-### Installation
+## Installation
 
 ``` bash
 
@@ -16,7 +14,7 @@ make
 
 ```
 
-### Usage
+## Usage
 
 ``` bash
 
