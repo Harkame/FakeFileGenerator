@@ -28,7 +28,7 @@ ffg.exe <fileToCopy> <fileName> <directoryToProcess> <anotherDirectoryToProcess>
 
 fileToCopy : File whose content will replace target files content
 
-fileName : All files whose name contains <fileName> will be modified
+fileName : All files whose name contains \<fileName\> will be modified
 
 directoryToProcess, anotherDirectoryToProcess, yetAnotherDirectoryToProcess : Directories that will be browse recursively
 
