@@ -1,3 +1,6 @@
 *.exe
 *.mp4
 *.flv
+files
+files_backup
+*.jpg
